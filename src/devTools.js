@@ -1,4 +1,4 @@
-import { stringify, parse } from 'jsan';
+import { stringify } from 'jsan';
 import socketCluster from 'socketcluster-client';
 import configureStore from './configureStore';
 import { defaultSocketOptions } from './constants';
@@ -11,6 +11,11 @@ import {
   filterStagedActions,
   filterState
 } from 'redux-devtools-core/lib/utils/filters';
+import {
+  generateId,
+  getSeralizeParameter,
+} from 'redux-devtools-core/lib/utils';
+import importState from 'redux-devtools-core/lib/utils/importState';
 
 function async(fn) {
   setTimeout(fn, 0);
@@ -25,6 +30,7 @@ function getRandomId() {
 }
 
 class DevToolsEnhancer {
+  instances = {};
   constructor() {
     this.enhance.updateStore = newStore => {
       console.warn('devTools.updateStore is deprecated use composeWithDevTools instead: ' +
@@ -68,7 +74,7 @@ class DevToolsEnhancer {
       type,
       id: this.socket.id,
       name: this.instanceName,
-      instanceId: this.appInstanceId,
+      instanceId: this.instanceId,
     };
     if (state) {
       message.payload = type === 'ERROR' ? state :
@@ -95,13 +101,27 @@ class DevToolsEnhancer {
     }
   }
 
+  getLiftedState = (store, filters) => {
+    const fixedStore = store || this.store;
+    return filterStagedActions(fixedStore.liftedStore.getState(), filters);
+  }
+
+  importPayloadFrom = (store, state, instance) => {
+    try {
+      const nextLiftedState = importState(state, instance);
+      if (!nextLiftedState) return;
+      store.liftedStore.dispatch({ type: 'IMPORT_STATE', ...nextLiftedState });
+      this.relay('STATE', this.getLiftedState(store, instance.filters), instance);
+    } catch (e) {
+      this.relay('ERROR', e.message, instance);
+    }
+  }
+
   handleMessages = (message) => {
     if (
       message.type === 'IMPORT' || message.type === 'SYNC' && this.socket.id && message.id !== this.socket.id
     ) {
-      this.store.liftedStore.dispatch({
-        type: 'IMPORT_STATE', nextLiftedState: parse(message.state)
-      });
+      this.importPayloadFrom(this.store, message.state, this.instances[message.instanceId]);
     } else if (message.type === 'UPDATE') {
       this.relay('STATE', this.getLiftedState());
     } else if (message.type === 'START') {
@@ -131,7 +151,7 @@ class DevToolsEnhancer {
 
   init(options) {
     this.instanceName = options.name;
-    this.appInstanceId = getRandomId();
+    this.instanceId = getRandomId();
     const { blacklist, whitelist } = options.filters || {};
     this.filters = getLocalFilter({
       actionsBlacklist: blacklist || options.actionsBlacklist,
@@ -261,6 +281,8 @@ class DevToolsEnhancer {
   }
 
   enhance = (options = {}) => {
+    this.instanceId = generateId(options.instanceId);
+
     this.init({
       ...options,
       hostname: getHostForRN(options.hostname || 'localhost')
@@ -284,6 +306,13 @@ class DevToolsEnhancer {
             pauseActionType: options.pauseActionType || '@@PAUSED'
           }
         )(reducer, initialState);
+
+
+        this.instances[this.instanceId] = {
+          name: options.name || this.instanceId,
+          id: this.instanceId,
+          store: this.store,
+        };
 
         if (realtime) this.start();
         this.store.subscribe(() => {
@@ -312,8 +341,10 @@ const compose = (options) => (...funcs) => (...args) => {
     };
   }
 
+  const instanceId = generateId(options.instanceId);
   return [preEnhancer, ...funcs].reduceRight(
-    (composed, f) => f(composed), devToolsEnhancer.enhance(options)(...args)
+    (composed, f) => f(composed),
+    devToolsEnhancer.enhance({ ...options, instanceId })(...args)
   );
 };
 
