@@ -31,6 +31,7 @@ function getRandomId() {
 
 class DevToolsEnhancer {
   instances = {};
+  errorCounts = {};
   constructor() {
     this.enhance.updateStore = newStore => {
       console.warn('devTools.updateStore is deprecated use composeWithDevTools instead: ' +
@@ -212,7 +213,7 @@ class DevToolsEnhancer {
 
     this.socket = socketCluster.connect(this.socketOptions);
 
-    this.socket.on('error', function (err) {
+    this.socket.on('error', (err) => {
       // if we've already had this error before, increment it's counter, otherwise assign it '1' since we've had the error once.
       this.errorCounts[err.name] = this.errorCounts.hasOwnProperty(err.name) ? this.errorCounts[err.name] + 1 : 1;
 
