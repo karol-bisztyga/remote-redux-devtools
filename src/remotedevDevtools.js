@@ -1,3 +1,6 @@
+// code taken from
+// https://github.com/zalmoxisus/remotedev/blob/f8256d934316b37a94cd24870fc1d3efcbe7d0b9/src/devTools.js
+// and customized
 import { stringify } from 'jsan';
 import socketCluster from 'socketcluster-client';
 import getHostForRN from 'rn-host-detect';
@@ -94,7 +97,6 @@ function start(options, urlPromise) {
       throw new Error('no port provided');
     }
     obtainUrl(urlPromise, options, () => {
-      console.log('here 733', 'start', options);
       connectToServer(options);
     });
   }
@@ -118,7 +120,6 @@ function transformAction(action, config) {
 }
 
 function send(action, state, options, type, instanceId) {
-  console.log('here 733', 'send', options);
   // start(options); // seems unnecessary...?
   setTimeout(() => {
     const message = {
@@ -167,15 +168,4 @@ export function connect(options = {}, urlPromise) {
       }
     },
   };
-}
-
-function connectViaExtension(options) {
-  if (
-    (options && options.remote) ||
-    typeof window === 'undefined' ||
-    !window.__REDUX_DEVTOOLS_EXTENSION__
-  ) {
-    return connect(options);
-  }
-  return window.__REDUX_DEVTOOLS_EXTENSION__.connect(options);
 }
