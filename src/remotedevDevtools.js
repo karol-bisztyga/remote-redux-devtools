@@ -1,4 +1,4 @@
-import { stringify, parse } from 'jsan';
+import { stringify } from 'jsan';
 import socketCluster from 'socketcluster-client';
 import getHostForRN from 'rn-host-detect';
 
@@ -16,12 +16,6 @@ let socket;
 let channel;
 const listeners = {};
 let obtainedUrl = null;
-
-function extractState(message) {
-  if (!message || !message.state) return undefined;
-  if (typeof message.state === 'string') return parse(message.state);
-  return message.state;
-}
 
 function generateId() {
   return Math.random().toString(36).substr(2);
@@ -161,9 +155,6 @@ export function connect(options = {}, urlPromise) {
         listeners[id].splice(index, 1);
       };
     },
-    // unsubscribe: () => {
-    //   delete listeners[id];
-    // },
     send: (action, payload) => {
       if (action) {
         obtainUrl(urlPromise, options, () => {
@@ -175,9 +166,6 @@ export function connect(options = {}, urlPromise) {
         });
       }
     },
-    // error: (payload) => {
-    //   socket.emit({ type: 'ERROR', payload, id: socket.id, instanceId: id });
-    // },
   };
 }
 
@@ -191,10 +179,3 @@ function connectViaExtension(options) {
   }
   return window.__REDUX_DEVTOOLS_EXTENSION__.connect(options);
 }
-
-// export default {
-//   connect,
-//   connectViaExtension /* , send*/,
-//   extractState,
-//   generateId
-// };
