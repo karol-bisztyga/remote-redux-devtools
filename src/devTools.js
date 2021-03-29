@@ -10,10 +10,7 @@ import {
   filterStagedActions,
   filterState
 } from 'redux-devtools-core/lib/utils/filters';
-import {
-  generateId,
-  getSeralizeParameter,
-} from 'redux-devtools-core/lib/utils';
+import { generateId } from 'redux-devtools-core/lib/utils';
 import importState from 'redux-devtools-core/lib/utils/importState';
 
 function async(fn) {
@@ -29,7 +26,7 @@ function getRandomId() {
 }
 
 class DevToolsEnhancer {
-  instances = {};
+  instance = {};
   errorCounts = {};
   urlPromise = null;
   socketUrl = null;
@@ -57,8 +54,8 @@ class DevToolsEnhancer {
   }
 
   send = () => {
-    if (!this.instanceId)
-      this.instanceId = (this.socket && this.socket.id) || getRandomId();
+    if (!this.instance.id)
+      this.instance.id = (this.socket && this.socket.id) || getRandomId();
     try {
       fetch(this.sendTo, {
         method: 'POST',
@@ -67,7 +64,7 @@ class DevToolsEnhancer {
         },
         body: JSON.stringify({
           type: 'STATE',
-          id: this.instanceId,
+          id: this.instance.id,
           name: this.instanceName,
           payload: stringify(this.getLiftedState()),
         }),
@@ -84,7 +81,7 @@ class DevToolsEnhancer {
       type,
       id: this.socket.id,
       name: this.instanceName,
-      instanceId: this.instanceId,
+      instanceId: this.instance.id,
     };
     if (state) {
       message.payload =
@@ -154,7 +151,7 @@ class DevToolsEnhancer {
       this.importPayloadFrom(
         this.store,
         message.state,
-        this.instances[message.instanceId]
+        this.instance
       );
     } else if (message.type === 'UPDATE') {
       this.relay('STATE', this.getLiftedState());
@@ -187,7 +184,7 @@ class DevToolsEnhancer {
 
   init(options) {
     this.instanceName = options.name;
-    this.instanceId = getRandomId();
+    this.instance.id = getRandomId();
     const { blacklist, whitelist } = options.filters || {};
     this.filters = getLocalFilter({
       actionsBlacklist: blacklist || options.actionsBlacklist,
@@ -216,7 +213,7 @@ class DevToolsEnhancer {
         `${this.socketOptions.secure ? 'https' : 'http'}://${
           this.socketOptions.hostname
         }:${this.socketOptions.port}`;
-      this.instanceId = options.id;
+      this.instance.id = options.id;
     }
     if (this.sendOnError === 1) catchErrors(this.sendError);
 
@@ -376,7 +373,7 @@ class DevToolsEnhancer {
   }
 
   enhance = (options = {}) => {
-    this.instanceId = generateId(options.instanceId);
+    const instanceId = generateId(options.instanceId);
 
     this.init({
       ...options,
@@ -403,9 +400,9 @@ class DevToolsEnhancer {
           pauseActionType: options.pauseActionType || '@@PAUSED',
         })(reducer, initialState);
 
-        this.instances[this.instanceId] = {
-          name: options.name || this.instanceId,
-          id: this.instanceId,
+        this.instance = {
+          name: options.name || instanceId,
+          id: instanceId,
           store: this.store,
         };
 
