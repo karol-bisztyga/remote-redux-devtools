@@ -2,7 +2,6 @@ import { stringify } from 'jsan';
 import socketCluster from 'socketcluster-client';
 import configureStore from './configureStore';
 import { defaultSocketOptions } from './constants';
-import getHostForRN from 'rn-host-detect';
 import { evalAction, getActionsArray } from 'redux-devtools-core/lib/utils';
 import catchErrors from 'redux-devtools-core/lib/utils/catchErrors';
 import {
@@ -32,12 +31,16 @@ function getRandomId() {
 class DevToolsEnhancer {
   instances = {};
   errorCounts = {};
-  constructor() {
+  urlPromise = null;
+  socketUrl = null;
+  constructor(urlPromise) {
     this.enhance.updateStore = newStore => {
       console.warn('devTools.updateStore is deprecated use composeWithDevTools instead: ' +
         'https://github.com/zalmoxisus/remote-redux-devtools#use-devtools-compose-helper');
       this.store = newStore;
     };
+
+    this.urlPromise = urlPromise;
   }
 
   getLiftedStateRaw() {
@@ -161,7 +164,7 @@ class DevToolsEnhancer {
     if (options.port) {
       this.socketOptions = {
         port: options.port,
-        hostname: options.hostname || 'localhost',
+        hostname: options.hostname,
         secure: options.secure
       };
     } else this.socketOptions = defaultSocketOptions;
@@ -208,9 +211,27 @@ class DevToolsEnhancer {
     }
   };
 
-  start = () => {
+  startWrapper = () => {
     if (this.started || this.socket && this.socket.getState() === this.socket.CONNECTING) return;
 
+
+    if (this.socketOptions.hostname) {
+      // hostname provided - don't look for it
+      this.start();
+    } else {
+      // obtain the hostname
+      this.urlPromise.then((url) => {
+        this.socketOptions.hostname = url;
+        this.socketUrl = url;
+        this.start();
+      }).catch((err) => {
+        console.log('Error obtaining socket url: ' + err.toString());
+      });
+    }
+
+  }
+
+  start = () => {
     this.socket = socketCluster.connect(this.socketOptions);
 
     this.socket.on('error', (err) => {
@@ -258,7 +279,7 @@ class DevToolsEnhancer {
   };
 
   handleChange(state, liftedState, maxAge) {
-    if (this.checkForReducerErrors(liftedState)) return;
+    if (this.checkForReducerErrors(liftedState) || !this.socketUrl) return;
 
     if (this.lastAction === 'PERFORM_ACTION') {
       const nextActionId = liftedState.nextActionId;
@@ -286,7 +307,7 @@ class DevToolsEnhancer {
 
     this.init({
       ...options,
-      hostname: getHostForRN(options.hostname || 'localhost')
+      hostname: options.hostname,
     });
     const realtime = typeof options.realtime === 'undefined'
       ? process.env.NODE_ENV === 'development' : options.realtime;
@@ -315,7 +336,7 @@ class DevToolsEnhancer {
           store: this.store,
         };
 
-        if (realtime) this.start();
+        if (realtime) this.startWrapper();
         this.store.subscribe(() => {
           if (this.isMonitored) this.handleChange(this.store.getState(), this.getLiftedStateRaw(), maxAge);
         });
@@ -325,10 +346,10 @@ class DevToolsEnhancer {
   }
 }
 
-export default (...args) => new DevToolsEnhancer().enhance(...args);
+export default (urlPromise, ...args) => new DevToolsEnhancer(urlPromise).enhance(...args);
 
-const compose = (options) => (...funcs) => (...args) => {
-  const devToolsEnhancer = new DevToolsEnhancer();
+const compose = (urlPromise, options) => (...funcs) => (...args) => {
+  const devToolsEnhancer = new DevToolsEnhancer(urlPromise);
 
   function preEnhancer(createStore) {
     return (reducer, preloadedState, enhancer) => {
@@ -349,12 +370,12 @@ const compose = (options) => (...funcs) => (...args) => {
   );
 };
 
-export function composeWithDevTools(...funcs) {
+export function composeWithDevTools(urlPromise, ...funcs) {
   if (funcs.length === 0) {
-    return new DevToolsEnhancer().enhance();
+    return new DevToolsEnhancer(urlPromise).enhance();
   }
   if (funcs.length === 1 && typeof funcs[0] === 'object') {
-    return compose(funcs[0]);
+    return compose(urlPromise, funcs[0]);
   }
-  return compose({})(...funcs);
+  return compose(urlPromise, {})(...funcs);
 }
