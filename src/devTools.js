@@ -26,7 +26,7 @@ function getRandomId() {
 }
 
 class DevToolsEnhancer {
-  instance = {};
+    instance = {};
   errorCounts = {};
   urlPromise = null;
   socketUrl = null;
@@ -54,20 +54,19 @@ class DevToolsEnhancer {
   }
 
   send = () => {
-    if (!this.instance.id)
-      this.instance.id = (this.socket && this.socket.id) || getRandomId();
+    if (!this.instance.id) this.instance.id = this.socket && this.socket.id || getRandomId();
     try {
       fetch(this.sendTo, {
         method: 'POST',
         headers: {
-          'content-type': 'application/json',
+          'content-type': 'application/json'
         },
         body: JSON.stringify({
           type: 'STATE',
           id: this.instance.id,
           name: this.instanceName,
-          payload: stringify(this.getLiftedState()),
-        }),
+          payload: stringify(this.getLiftedState())
+        })
       }).catch(function (err) {
         console.log(err);
       });
@@ -84,25 +83,12 @@ class DevToolsEnhancer {
       instanceId: this.instance.id,
     };
     if (state) {
-      message.payload =
-        type === 'ERROR'
-          ? state
-          : stringify(
-              filterState(
-                state,
-                type,
-                this.filters,
-                this.stateSanitizer,
-                this.actionSanitizer,
-                nextActionId
-              )
-            );
+      message.payload = type === 'ERROR' ? state :
+        stringify(filterState(state, type, this.filters, this.stateSanitizer, this.actionSanitizer, nextActionId));
     }
     if (type === 'ACTION') {
       message.action = stringify(
-        !this.actionSanitizer
-          ? action
-          : this.actionSanitizer(action.action, nextActionId - 1)
+        !this.actionSanitizer ? action : this.actionSanitizer(action.action, nextActionId - 1)
       );
       message.isExcess = this.isExcess;
       message.nextActionId = nextActionId;
@@ -143,22 +129,14 @@ class DevToolsEnhancer {
 
   handleMessages = (message) => {
     if (
-      message.type === 'IMPORT' ||
-      (message.type === 'SYNC' &&
-        this.socket.id &&
-        message.id !== this.socket.id)
+      message.type === 'IMPORT' || message.type === 'SYNC' && this.socket.id && message.id !== this.socket.id
     ) {
-      this.importPayloadFrom(
-        this.store,
-        message.state,
-        this.instance
-      );
+      this.importPayloadFrom(this.store, message.state, this.instance);
     } else if (message.type === 'UPDATE') {
       this.relay('STATE', this.getLiftedState());
     } else if (message.type === 'START') {
       this.isMonitored = true;
-      if (typeof this.actionCreators === 'function')
-        this.actionCreators = this.actionCreators();
+      if (typeof this.actionCreators === 'function') this.actionCreators = this.actionCreators();
       this.relay('STATE', this.getLiftedState(), this.actionCreators);
     } else if (message.type === 'STOP' || message.type === 'DISCONNECTED') {
       this.isMonitored = false;
@@ -172,8 +150,7 @@ class DevToolsEnhancer {
 
   sendError = (errorAction) => {
     // Prevent flooding
-    if (errorAction.message && errorAction.message === this.lastErrorMsg)
-      return;
+    if (errorAction.message && errorAction.message === this.lastErrorMsg) return;
     this.lastErrorMsg = errorAction.message;
 
     async(() => {
@@ -188,47 +165,37 @@ class DevToolsEnhancer {
     const { blacklist, whitelist } = options.filters || {};
     this.filters = getLocalFilter({
       actionsBlacklist: blacklist || options.actionsBlacklist,
-      actionsWhitelist: whitelist || options.actionsWhitelist,
+      actionsWhitelist: whitelist || options.actionsWhitelist
     });
     if (options.port) {
       this.socketOptions = {
         port: options.port,
         hostname: options.hostname,
-        secure: options.secure,
+        secure: options.secure
       };
     } else this.socketOptions = defaultSocketOptions;
 
-    this.suppressConnectErrors =
-      options.suppressConnectErrors !== undefined
-        ? options.suppressConnectErrors
-        : true;
+    this.suppressConnectErrors = options.suppressConnectErrors !== undefined ? options.suppressConnectErrors : true;
 
     this.startOn = str2array(options.startOn);
     this.stopOn = str2array(options.stopOn);
     this.sendOn = str2array(options.sendOn);
     this.sendOnError = options.sendOnError;
     if (this.sendOn || this.sendOnError) {
-      this.sendTo =
-        options.sendTo ||
-        `${this.socketOptions.secure ? 'https' : 'http'}://${
-          this.socketOptions.hostname
-        }:${this.socketOptions.port}`;
+      this.sendTo = options.sendTo ||
+        `${this.socketOptions.secure ? 'https' : 'http'}://${this.socketOptions.hostname}:${this.socketOptions.port}`;
       this.instance.id = options.id;
     }
     if (this.sendOnError === 1) catchErrors(this.sendError);
 
-    if (options.actionCreators)
-      this.actionCreators = () => getActionsArray(options.actionCreators);
+    if (options.actionCreators) this.actionCreators = () => getActionsArray(options.actionCreators);
     this.stateSanitizer = options.stateSanitizer;
     this.actionSanitizer = options.actionSanitizer;
   }
 
   login() {
     this.socket.emit('login', 'master', (err, channelName) => {
-      if (err) {
-        console.log(err);
-        return;
-      }
+      if (err) { console.log(err); return; }
       this.channel = channelName;
       this.socket.subscribe(channelName).watch(this.handleMessages);
       this.socket.on(channelName, this.handleMessages);
@@ -251,11 +218,7 @@ class DevToolsEnhancer {
   };
 
   startWrapper = () => {
-    if (
-      this.started ||
-      (this.socket && this.socket.getState() === this.socket.CONNECTING)
-    )
-      return;
+    if (this.started || (this.socket && this.socket.getState() === this.socket.CONNECTING)) return;
 
     if (!this.socketOptions.port) {
       // no port provided - we should throw!
@@ -279,21 +242,18 @@ class DevToolsEnhancer {
   };
 
   start = () => {
+    if (this.started || this.socket && this.socket.getState() === this.socket.CONNECTING) return;
+
     this.socket = socketCluster.connect(this.socketOptions);
 
     this.socket.on('error', (err) => {
       // if we've already had this error before, increment it's counter, otherwise assign it '1' since we've had the error once.
-      this.errorCounts[err.name] = this.errorCounts.hasOwnProperty(err.name)
-        ? this.errorCounts[err.name] + 1
-        : 1;
+      this.errorCounts[err.name] = this.errorCounts.hasOwnProperty(err.name) ? this.errorCounts[err.name] + 1 : 1;
 
       if (this.suppressConnectErrors) {
         if (this.errorCounts[err.name] === 1) {
-          console.log(
-            'remote-redux-devtools: Socket connection errors are being suppressed. ' +
-              '\n' +
-              'This can be disabled by setting suppressConnectErrors to \'false\'.'
-          );
+          console.log('remote-redux-devtools: Socket connection errors are being suppressed. ' + '\n' +
+                'This can be disabled by setting suppressConnectErrors to \'false\'.');
           console.log(err);
         }
       } else {
@@ -312,8 +272,7 @@ class DevToolsEnhancer {
 
   checkForReducerErrors = (liftedState = this.getLiftedStateRaw()) => {
     if (liftedState.computedStates[liftedState.currentStateIndex].error) {
-      if (this.started)
-        this.relay('STATE', filterStagedActions(liftedState, this.filters));
+      if (this.started) this.relay('STATE', filterStagedActions(liftedState, this.filters));
       else this.send();
       return true;
     }
@@ -322,27 +281,11 @@ class DevToolsEnhancer {
 
   monitorReducer = (state = {}, action) => {
     this.lastAction = action.type;
-    if (!this.started && this.sendOnError === 2 && this.store.liftedStore)
-      async(this.checkForReducerErrors);
+    if (!this.started && this.sendOnError === 2 && this.store.liftedStore) async(this.checkForReducerErrors);
     else if (action.action) {
-      if (
-        this.startOn &&
-        !this.started &&
-        this.startOn.indexOf(action.action.type) !== -1
-      )
-        async(this.start);
-      else if (
-        this.stopOn &&
-        this.started &&
-        this.stopOn.indexOf(action.action.type) !== -1
-      )
-        async(this.stop);
-      else if (
-        this.sendOn &&
-        !this.started &&
-        this.sendOn.indexOf(action.action.type) !== -1
-      )
-        async(this.send);
+      if (this.startOn && !this.started && this.startOn.indexOf(action.action.type) !== -1) async(this.start);
+      else if (this.stopOn && this.started && this.stopOn.indexOf(action.action.type) !== -1) async(this.stop);
+      else if (this.sendOn && !this.started && this.sendOn.indexOf(action.action.type) !== -1) async(this.send);
     }
     return state;
   };
@@ -355,8 +298,7 @@ class DevToolsEnhancer {
       const liftedAction = liftedState.actionsById[nextActionId - 1];
       if (isFiltered(liftedAction.action, this.filters)) return;
       this.relay('ACTION', state, liftedAction, nextActionId);
-      if (!this.isExcess && maxAge)
-        this.isExcess = liftedState.stagedActionIds.length >= maxAge;
+      if (!this.isExcess && maxAge) this.isExcess = liftedState.stagedActionIds.length >= maxAge;
     } else {
       if (this.lastAction === 'JUMP_TO_STATE') return;
       if (this.lastAction === 'PAUSE_RECORDING') {
@@ -374,20 +316,16 @@ class DevToolsEnhancer {
 
   enhance = (options = {}) => {
     const instanceId = generateId(options.instanceId);
-
     this.init({
       ...options,
       hostname: options.hostname,
     });
-    const realtime =
-      typeof options.realtime === 'undefined'
-        ? process.env.NODE_ENV === 'development'
-        : options.realtime;
-    if (!realtime && !(this.startOn || this.sendOn || this.sendOnError))
-      return (f) => f;
+    const realtime = typeof options.realtime === 'undefined'
+      ? process.env.NODE_ENV === 'development' : options.realtime;
+    if (!realtime && !(this.startOn || this.sendOn || this.sendOnError)) return f => f;
 
     const maxAge = options.maxAge || 30;
-    return (next) => {
+    return next => {
       return (reducer, initialState) => {
         this.store = configureStore(next, this.monitorReducer, {
           maxAge,
@@ -407,18 +345,14 @@ class DevToolsEnhancer {
         };
 
         if (realtime) this.startWrapper();
+
         this.store.subscribe(() => {
-          if (this.isMonitored)
-            this.handleChange(
-              this.store.getState(),
-              this.getLiftedStateRaw(),
-              maxAge
-            );
+          if (this.isMonitored) this.handleChange(this.store.getState(), this.getLiftedStateRaw(), maxAge);
         });
         return this.store;
       };
     };
-  };
+  }
 }
 
 export default (urlPromise, ...args) => new DevToolsEnhancer(urlPromise).enhance(...args);
