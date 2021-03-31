@@ -45,12 +45,15 @@ class DevToolsEnhancer {
     this.urlPromise = urlPromise;
   }
 
-  getLiftedStateRaw() {
-    return this.store.liftedStore.getState();
+
+  getLiftedStateRaw(store) {
+    const fixedStore = store || this.store;
+    return fixedStore.liftedStore.getState();
   }
 
-  getLiftedState() {
-    return filterStagedActions(this.getLiftedStateRaw(), this.filters);
+  getLiftedState(store, filters) {
+    const fixedFilters = filters || this.filters;
+    return filterStagedActions(this.getLiftedStateRaw(store), fixedFilters);
   }
 
   send = () => {
@@ -64,7 +67,7 @@ class DevToolsEnhancer {
         body: JSON.stringify({
           type: 'STATE',
           id: this.instance.id,
-          name: this.instanceName,
+          name: this.instance.name,
           payload: stringify(this.getLiftedState())
         })
       }).catch(function (err) {
@@ -79,7 +82,7 @@ class DevToolsEnhancer {
     const message = {
       type,
       id: this.socket.id,
-      name: this.instanceName,
+      name: this.instance.name,
       instanceId: this.instance.id,
     };
     if (state) {
@@ -106,11 +109,6 @@ class DevToolsEnhancer {
       this.relay('ERROR', e.message);
     }
   }
-
-  getLiftedState = (store, filters) => {
-    const fixedStore = store || this.store;
-    return filterStagedActions(fixedStore.liftedStore.getState(), filters);
-  };
 
   importPayloadFrom = (store, state, instance) => {
     try {
@@ -160,7 +158,6 @@ class DevToolsEnhancer {
   };
 
   init(options) {
-    this.instanceName = options.name;
     this.instance.id = getRandomId();
     const { blacklist, whitelist } = options.filters || {};
     this.filters = getLocalFilter({
