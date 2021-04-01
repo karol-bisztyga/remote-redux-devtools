@@ -26,10 +26,7 @@ function getRandomId() {
 }
 
 class DevToolsEnhancer {
-  instance = {};
   errorCounts = {};
-  urlPromise = null;
-  socketUrl = null;
 
   // an async function that returns a proper remote server url and uses
   // `isEmulator` from 'react-native-device-info' is expected
@@ -43,7 +40,6 @@ class DevToolsEnhancer {
     this.urlPromise = urlPromise;
   }
 
-
   getLiftedStateRaw() {
     return this.store.liftedStore.getState();
   }
@@ -53,7 +49,7 @@ class DevToolsEnhancer {
   }
 
   send = () => {
-    if (!this.instance.id) this.instance.id = this.socket && this.socket.id || getRandomId();
+    if (!this.instanceId) this.instanceId = this.socket && this.socket.id || getRandomId();
     try {
       fetch(this.sendTo, {
         method: 'POST',
@@ -62,8 +58,8 @@ class DevToolsEnhancer {
         },
         body: JSON.stringify({
           type: 'STATE',
-          id: this.instance.id,
-          name: this.instance.name,
+          id: this.instanceId,
+          name: this.instanceName,
           payload: stringify(this.getLiftedState())
         })
       }).catch(function (err) {
@@ -78,8 +74,8 @@ class DevToolsEnhancer {
     const message = {
       type,
       id: this.socket.id,
-      name: this.instance.name,
-      instanceId: this.instance.id,
+      name: this.instanceName,
+      instanceId: this.appInstanceId,
     };
     if (state) {
       message.payload = type === 'ERROR' ? state :
@@ -106,7 +102,12 @@ class DevToolsEnhancer {
     }
   }
 
-  importPayloadFrom = (state, instance) => {
+  importPayloadFrom = (state) => {
+    const instance = {
+      name: this.instanceName,
+      id: this.appInstanceId,
+      store: this.store,
+    };
     try {
       const nextLiftedState = importState(state, instance);
       if (!nextLiftedState) return;
@@ -125,7 +126,7 @@ class DevToolsEnhancer {
     if (
       message.type === 'IMPORT' || message.type === 'SYNC' && this.socket.id && message.id !== this.socket.id
     ) {
-      this.importPayloadFrom(this.store, message.state, this.instance);
+      this.importPayloadFrom(message.state);
     } else if (message.type === 'UPDATE') {
       this.relay('STATE', this.getLiftedState());
     } else if (message.type === 'START') {
@@ -154,7 +155,8 @@ class DevToolsEnhancer {
   };
 
   init(options) {
-    this.instance.id = getRandomId();
+    this.instanceName = options.name;
+    this.appInstanceId = getRandomId();
     const { blacklist, whitelist } = options.filters || {};
     this.filters = getLocalFilter({
       actionsBlacklist: blacklist || options.actionsBlacklist,
@@ -177,7 +179,7 @@ class DevToolsEnhancer {
     if (this.sendOn || this.sendOnError) {
       this.sendTo = options.sendTo ||
         `${this.socketOptions.secure ? 'https' : 'http'}://${this.socketOptions.hostname}:${this.socketOptions.port}`;
-      this.instance.id = options.id;
+      this.instanceId = options.id;
     }
     if (this.sendOnError === 1) catchErrors(this.sendError);
 
@@ -211,7 +213,9 @@ class DevToolsEnhancer {
   };
 
   startWrapper = () => {
-    if (this.started || (this.socket && this.socket.getState() === this.socket.CONNECTING)) return;
+    if (this.started || (this.socket && this.socket.getState() === this.socket.CONNECTING)) {
+      return;
+    }
 
     if (!this.socketOptions.port) {
       // no port provided - we should throw!
@@ -220,18 +224,18 @@ class DevToolsEnhancer {
     if (this.socketOptions.hostname) {
       // hostname provided - don't look for it
       this.start();
-    } else {
-      // obtain the hostname
-      this.urlPromise
-        .then((url) => {
-          this.socketOptions.hostname = url;
-          this.socketUrl = url;
-          this.start();
-        })
-        .catch((err) => {
-          console.log('Error obtaining socket url: ' + err.toString());
-        });
+      return;
     }
+    // obtain the hostname
+    this.urlPromise
+      .then((url) => {
+        this.socketOptions.hostname = url;
+        this.socketUrl = url;
+        this.start();
+      })
+      .catch((err) => {
+        throw new Error('Error obtaining socket url: ' + err.toString());
+      });
   };
 
   start = () => {
@@ -308,7 +312,6 @@ class DevToolsEnhancer {
   }
 
   enhance = (options = {}) => {
-    const instanceId = generateId(options.instanceId);
     this.init({
       ...options,
       hostname: options.hostname,
@@ -329,15 +332,9 @@ class DevToolsEnhancer {
             shouldHotReload: options.shouldHotReload,
             shouldRecordChanges: options.shouldRecordChanges,
             shouldStartLocked: options.shouldStartLocked,
-            pauseActionType: options.pauseActionType || '@@PAUSED',
+            pauseActionType: options.pauseActionType || '@@PAUSED'
           }
         )(reducer, initialState);
-
-        this.instance = {
-          name: options.name || instanceId,
-          id: instanceId,
-          store: this.store,
-        };
 
         if (realtime) this.startWrapper();
 
@@ -367,10 +364,8 @@ const compose = (urlPromise, options) => (...funcs) => (...args) => {
     };
   }
 
-  const instanceId = generateId(options.instanceId);
   return [preEnhancer, ...funcs].reduceRight(
-    (composed, f) => f(composed),
-    devToolsEnhancer.enhance({ ...options, instanceId })(...args)
+    (composed, f) => f(composed), devToolsEnhancer.enhance(options)(...args)
   );
 };
 
