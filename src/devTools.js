@@ -312,10 +312,7 @@ class DevToolsEnhancer {
   }
 
   enhance = (options = {}) => {
-    this.init({
-      ...options,
-      hostname: options.hostname,
-    });
+    this.init(options);
     const realtime = typeof options.realtime === 'undefined'
       ? process.env.NODE_ENV === 'development' : options.realtime;
     if (!realtime && !(this.startOn || this.sendOn || this.sendOnError)) return f => f;
