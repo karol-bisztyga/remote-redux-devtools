@@ -10,7 +10,6 @@ import {
   filterStagedActions,
   filterState
 } from 'redux-devtools-core/lib/utils/filters';
-import { generateId } from 'redux-devtools-core/lib/utils';
 import importState from 'redux-devtools-core/lib/utils/importState';
 
 function async(fn) {
