@@ -26,7 +26,7 @@ function getRandomId() {
 }
 
 class DevToolsEnhancer {
-    instance = {};
+  instance = {};
   errorCounts = {};
   urlPromise = null;
   socketUrl = null;
@@ -34,11 +34,9 @@ class DevToolsEnhancer {
   // an async function that returns a proper remote server url and uses
   // `isEmulator` from 'react-native-device-info' is expected
   constructor(urlPromise) {
-    this.enhance.updateStore = (newStore) => {
-      console.warn(
-        'devTools.updateStore is deprecated use composeWithDevTools instead: ' +
-          'https://github.com/zalmoxisus/remote-redux-devtools#use-devtools-compose-helper'
-      );
+    this.enhance.updateStore = newStore => {
+      console.warn('devTools.updateStore is deprecated use composeWithDevTools instead: ' +
+        'https://github.com/zalmoxisus/remote-redux-devtools#use-devtools-compose-helper');
       this.store = newStore;
     };
 
@@ -324,16 +322,18 @@ class DevToolsEnhancer {
     const maxAge = options.maxAge || 30;
     return next => {
       return (reducer, initialState) => {
-        this.store = configureStore(next, this.monitorReducer, {
-          maxAge,
-          trace: options.trace,
-          traceLimit: options.traceLimit,
-          shouldCatchErrors: !!this.sendOnError,
-          shouldHotReload: options.shouldHotReload,
-          shouldRecordChanges: options.shouldRecordChanges,
-          shouldStartLocked: options.shouldStartLocked,
-          pauseActionType: options.pauseActionType || '@@PAUSED',
-        })(reducer, initialState);
+        this.store = configureStore(
+          next, this.monitorReducer, {
+            maxAge,
+            trace: options.trace,
+            traceLimit: options.traceLimit,
+            shouldCatchErrors: !!this.sendOnError,
+            shouldHotReload: options.shouldHotReload,
+            shouldRecordChanges: options.shouldRecordChanges,
+            shouldStartLocked: options.shouldStartLocked,
+            pauseActionType: options.pauseActionType || '@@PAUSED',
+          }
+        )(reducer, initialState);
 
         this.instance = {
           name: options.name || instanceId,
