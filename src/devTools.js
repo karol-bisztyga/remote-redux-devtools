@@ -44,14 +44,12 @@ class DevToolsEnhancer {
   }
 
 
-  getLiftedStateRaw(store) {
-    const fixedStore = store || this.store;
-    return fixedStore.liftedStore.getState();
+  getLiftedStateRaw() {
+    return this.store.liftedStore.getState();
   }
 
-  getLiftedState(store, filters) {
-    const fixedFilters = filters || this.filters;
-    return filterStagedActions(this.getLiftedStateRaw(store), fixedFilters);
+  getLiftedState() {
+    return filterStagedActions(this.getLiftedStateRaw(), this.filters);
   }
 
   send = () => {
@@ -108,14 +106,14 @@ class DevToolsEnhancer {
     }
   }
 
-  importPayloadFrom = (store, state, instance) => {
+  importPayloadFrom = (state, instance) => {
     try {
       const nextLiftedState = importState(state, instance);
       if (!nextLiftedState) return;
-      store.liftedStore.dispatch({ type: 'IMPORT_STATE', ...nextLiftedState });
+      this.store.liftedStore.dispatch({ type: 'IMPORT_STATE', ...nextLiftedState });
       this.relay(
         'STATE',
-        this.getLiftedState(store, instance.filters),
+        this.getLiftedState(),
         instance
       );
     } catch (e) {
