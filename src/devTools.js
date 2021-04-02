@@ -277,7 +277,7 @@ class DevToolsEnhancer {
     this.lastAction = action.type;
     if (!this.started && this.sendOnError === 2 && this.store.liftedStore) async(this.checkForReducerErrors);
     else if (action.action) {
-      if (this.startOn && !this.started && this.startOn.indexOf(action.action.type) !== -1) async(this.start);
+      if (this.startOn && !this.started && this.startOn.indexOf(action.action.type) !== -1) async(this.startWrapper);
       else if (this.stopOn && this.started && this.stopOn.indexOf(action.action.type) !== -1) async(this.stop);
       else if (this.sendOn && !this.started && this.sendOn.indexOf(action.action.type) !== -1) async(this.send);
     }
