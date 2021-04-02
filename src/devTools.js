@@ -27,16 +27,16 @@ function getRandomId() {
 class DevToolsEnhancer {
   errorCounts = {};
 
-  // an async function that returns a proper remote server url and uses
+  // an async function that returns a proper remote server hostname and uses
   // `isEmulator` from 'react-native-device-info' is expected
-  constructor(urlPromise) {
+  constructor(hostnamePromise) {
     this.enhance.updateStore = newStore => {
       console.warn('devTools.updateStore is deprecated use composeWithDevTools instead: ' +
         'https://github.com/zalmoxisus/remote-redux-devtools#use-devtools-compose-helper');
       this.store = newStore;
     };
 
-    this.urlPromise = urlPromise;
+    this.hostnamePromise = hostnamePromise;
   }
 
   getLiftedStateRaw() {
@@ -211,7 +211,7 @@ class DevToolsEnhancer {
     }
   };
 
-  startWrapper = () => {
+  startWrapper = async () => {
     if (this.started || (this.socket && this.socket.getState() === this.socket.CONNECTING)) {
       return;
     }
@@ -226,15 +226,13 @@ class DevToolsEnhancer {
       return;
     }
     // obtain the hostname
-    this.urlPromise
-      .then((url) => {
-        this.socketOptions.hostname = url;
-        this.socketUrl = url;
-        this.start();
-      })
-      .catch((err) => {
-        throw new Error('Error obtaining socket url: ' + err.toString());
-      });
+    try {
+      this.socketHostname = await this.hostnamePromise;
+      this.socketOptions.hostname = this.socketHostname;
+      this.start();
+    } catch (err) {
+      throw new Error('Error obtaining socket hostname: ' + err.toString());
+    }
   };
 
   start = () => {
@@ -287,7 +285,7 @@ class DevToolsEnhancer {
   };
 
   handleChange(state, liftedState, maxAge) {
-    if (this.checkForReducerErrors(liftedState) || !this.socketUrl) return;
+    if (this.checkForReducerErrors(liftedState) || !this.socketHostname) return;
 
     if (this.lastAction === 'PERFORM_ACTION') {
       const nextActionId = liftedState.nextActionId;
@@ -343,10 +341,10 @@ class DevToolsEnhancer {
   }
 }
 
-export default (urlPromise, ...args) => new DevToolsEnhancer(urlPromise).enhance(...args);
+export default (hostnamePromise, ...args) => new DevToolsEnhancer(hostnamePromise).enhance(...args);
 
-const compose = (urlPromise, options) => (...funcs) => (...args) => {
-  const devToolsEnhancer = new DevToolsEnhancer(urlPromise);
+const compose = (hostnamePromise, options) => (...funcs) => (...args) => {
+  const devToolsEnhancer = new DevToolsEnhancer(hostnamePromise);
 
   function preEnhancer(createStore) {
     return (reducer, preloadedState, enhancer) => {
@@ -365,12 +363,12 @@ const compose = (urlPromise, options) => (...funcs) => (...args) => {
   );
 };
 
-export function composeWithDevTools(urlPromise, ...funcs) {
+export function composeWithDevTools(hostnamePromise, ...funcs) {
   if (funcs.length === 0) {
-    return new DevToolsEnhancer(urlPromise).enhance();
+    return new DevToolsEnhancer(hostnamePromise).enhance();
   }
   if (funcs.length === 1 && typeof funcs[0] === 'object') {
-    return compose(urlPromise, funcs[0]);
+    return compose(hostnamePromise, funcs[0]);
   }
-  return compose(urlPromise, {})(...funcs);
+  return compose(hostnamePromise, {})(...funcs);
 }
