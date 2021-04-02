@@ -285,7 +285,7 @@ class DevToolsEnhancer {
   };
 
   handleChange(state, liftedState, maxAge) {
-    if (this.checkForReducerErrors(liftedState) || !this.socketHostname) return;
+    if (this.checkForReducerErrors(liftedState)) return;
 
     if (this.lastAction === 'PERFORM_ACTION') {
       const nextActionId = liftedState.nextActionId;
