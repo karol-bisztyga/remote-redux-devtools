@@ -109,7 +109,9 @@ class DevToolsEnhancer {
     };
     try {
       const nextLiftedState = importState(state, instance);
-      if (!nextLiftedState) return;
+      if (!nextLiftedState) {
+        return;
+      }
       this.store.liftedStore.dispatch({ type: 'IMPORT_STATE', ...nextLiftedState });
       this.relay(
         'STATE',
@@ -227,8 +229,7 @@ class DevToolsEnhancer {
     }
     // obtain the hostname
     try {
-      this.socketHostname = await this.hostnamePromise;
-      this.socketOptions.hostname = this.socketHostname;
+      this.socketOptions.hostname = await this.hostnamePromise;
       this.start();
     } catch (err) {
       throw new Error('Error obtaining socket hostname: ' + err.toString());
